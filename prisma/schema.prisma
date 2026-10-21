@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  providers     ProviderCredential[]
+  conversations Conversation[]
+  prompts       Prompt[]
+  messages      Message[]
+
+  @@map("users")
+}
+
+model ProviderCredential {
+  id          String   @id @default(cuid())
+  userId      String
+  providerId  String
+  displayName String?
+  apiKeyEncrypted String
+  apiKeyIv    String
+  apiKeyTag   String
+  baseUrl     String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([userId, providerId, baseUrl])
+  @@map("provider_credentials")
+}
+
+model Conversation {
+  id              String   @id @default(cuid())
+  userId          String
+  providerId      String?
+  modelId         String?
+  credentialId    String?
+  title           String
+  mode            String   @default("chat")
+  arenaModelIds   String?
+  systemPrompt    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential   ProviderCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  messages     Message[]
+  usageRecords UsageRecord[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  userId          String
+  role            String
+  content         String
+  modelId         String?
+  providerId      String?
+  promptTokens    Int?
+  completionTokens Int?
+  totalTokens     Int?
+  finishReason    String?
+  createdAt       DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Prompt {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  content     String
+  description String?
+  category    String?
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("prompts")
+}
+
+model UsageRecord {
+  id              String   @id @default(cuid())
+  userId          String
+  conversationId  String?
+  providerId      String
+  modelId         String
+  promptTokens    Int      @default(0)
+  completionTokens Int     @default(0)
+  totalTokens     Int      @default(0)
+  estimatedCost   Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@map("usage_records")
+}
